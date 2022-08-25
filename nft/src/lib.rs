@@ -10,7 +10,7 @@ struct Picture {
 #[template]
 mod nft {
     struct PictureSeller {
-        pictures: Vault<Pictures>,
+        pictures: Vault<Picture>,
         price: Amount,
         earnings: Vault<Thaum>,
     }
@@ -22,7 +22,7 @@ mod nft {
                 .initial_supply(vec![
                     Picture::new(NonFungibleId.random(), "Mona Lisa", Hash::from_hex("0x...."), "https://...."),
                     Picture::new(NonFungibleId.random(), "The Starry Night", Hash::from_hex("0x...."), "https://..."),
-                    Picture::new(NonFungibleId.random(), "Guernice", Hash::from_hex("0x...."), "https://..."),
+                    Picture::new(NonFungibleId.random(), "Guernica", Hash::from_hex("0x...."), "https://..."),
                 ])
                 .into_vault();
 
@@ -41,5 +41,71 @@ mod nft {
 
             (picture, change)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    
+    #[template_stub(module="PictureSeller")]
+    struct PictureSeller;
+
+    #[test]
+    fn it_should_let_buy_with_enough_funds() {
+        // initialize the component
+        let price = Amount(1_000);
+        let mut picture_seller = PictureSeller::new(price);
+        
+        // initialize a user account with enough funds
+        let mut account = Account::new();
+        account.add_fungible(Thaum, price);
+
+        // in a real network, we should also specify the fees for the transaction
+        let payment: Bucket<Thaum> = account.take_fungible(Thaum, price);
+        let (picture, _) = picture_seller.buy(payment).unwrap();
+
+        // store our brand new picture in our account
+        println!("Succesfully bought '{}'", picture.name);
+        account.add_non_fungible(picture);
+    }
+
+    #[test]
+    fn it_should_not_let_buy_with_insufficient_funds() {
+        // initialize the component
+        let price = Amount(1_000);
+        let mut picture_seller = PictureSeller::new(price);
+
+        // initialize a user account
+        let mut account = Account::new();
+        account.add_fungible(Thaum, price);
+
+        // try to buy with an insufficient payment...
+        let insufficient_amount = Amount(price - 1);
+        let payment: Bucket<Thaum> = account.take_fungible(Thaum, insufficient_amount);
+
+        // ...we should get an error
+        picture_seller.buy(payment).unwrap_err();
+    }
+
+    #[test]
+    fn it_should_fail_with_no_pictures_left() {
+        // initialize the component
+        let price = Amount(1_000);
+        let mut picture_seller = PictureSeller::new(price);
+
+        // initialize a user account with enough funds to buy all pictures
+        let mut account = Account::new();
+        account.add_fungible(Thaum, price * 4);
+
+        // buy all pictures
+        for _ in 0..3 {
+            let payment: Bucket<Thaum> = account.take_fungible(Thaum, price);
+            let (picture, _) = picture_seller.buy(payment).unwrap();
+            account.add_non_fungible(picture);
+        }
+
+        // now there are no more pictures left, if we try to buy again we will get an error
+        let payment: Bucket<Thaum> = account.take_fungible(Thaum, price);
+        picture_seller.buy(payment).unwrap_err();
     }
 }

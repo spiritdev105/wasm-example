@@ -76,13 +76,47 @@ mod emoji_id {
         }
 
         #[access_rule(owner_only)]
-        pub fn withdraw_earnings(&mut self, amount: Amount) -> Bucket<Thaum> {
-            // OLD: self.earnings.take(amount)
-
-            let (withdrawed, change) = self.earnings.split(amount); // buckets are consumed
-            self.earnings.put(change);
-
-            withdrawed
+        pub fn withdraw_earnings(&mut self) -> Bucket<Thaum> {
+            self.earnings.take_all()
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    
+    #[template_stub(module="EmojiIdMinter")]
+    struct EmojiIdMinter;
+
+    #[test]
+    fn mint_and_withdraw() {
+        // initialize the contract owner account
+        let mut owner_account = Account::new();
+        owner_account.add_badge(owner_badge);
+
+        // initialize the component
+        let price = Amount(1_000);
+        let (mut emoji_id_minter, owner_badge) = EmojiIdMinter::new(price); 
+        
+        // initialize a user account with enough funds
+        let mut user_account = Account::new();
+        user_account.add_fungible(Thaum, price);
+
+        // mint a new emoji id
+        let emojis = vec![Emoji::Smile, Emoji::Wink];
+        let payment: Bucket<Thaum> = user_account.take_fungible(Thaum, price);
+        let (emoji_id, _) = emoji_id_minter.mint(emojis, paymet).unwrap();
+
+        // store our brand new emoji_id in our account
+        println!("Succesfully bought '{}'", emoji_id);
+        user_account.add_non_fungible(emoji_id);
+
+        // as owners, and we want to withdraw earnings
+        let earnings: Bucket<Thaum> = emoji_id_minter
+            .with_badge(owner_badge)    // derived by the "template_stub" macro
+            .withdraw_earnings()
+            .unwrap();
+        owner_account.add_fungible(Thaum, earnings);
     }
 }
