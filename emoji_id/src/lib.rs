@@ -89,23 +89,23 @@ mod tests {
     #[template_stub(module="EmojiIdMinter")]
     struct EmojiIdMinter;
 
-    #[test]
+    #[template_test]
     fn mint_and_withdraw() {
         // initialize the contract owner account
-        let mut owner_account = Account::new();
-        owner_account.add_badge(owner_badge);
+        let mut owner_account = Account::new(); 
 
         // initialize the component
         let price = Amount(1_000);
         let (mut emoji_id_minter, owner_badge) = EmojiIdMinter::new(price); 
+        owner_account.add_badge(owner_badge);
         
         // initialize a user account with enough funds
         let mut user_account = Account::new();
-        user_account.add_fungible(Thaum, price);
+        user_account.add_fungible(ThaumFaucet::take(price));
 
         // mint a new emoji id
         let emojis = vec![Emoji::Smile, Emoji::Wink];
-        let payment: Bucket<Thaum> = user_account.take_fungible(Thaum, price);
+        let payment: Bucket<Thaum> = user_account.take_fungible(price);
         let (emoji_id, _) = emoji_id_minter.mint(emojis, paymet).unwrap();
 
         // store our brand new emoji_id in our account
@@ -117,6 +117,6 @@ mod tests {
             .with_badge(owner_badge)    // derived by the "template_stub" macro
             .withdraw_earnings()
             .unwrap();
-        owner_account.add_fungible(Thaum, earnings);
+        owner_account.add_fungible(earnings);
     }
 }

@@ -59,3 +59,55 @@ mod dex {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    
+    #[template_stub(module="Dex")]
+    struct Dex;
+
+    #[template_stub(path="test/erc20", module="Koin")]
+    struct Koin;
+
+    #[template_test]
+    fn swap_tokens() {
+        // initialize a user account with funds
+        // The token "A" will be Thaums
+        let account = Account::new();
+        account.add_fungible(Thaum, Amount(1_000));
+        let thaum_bucket = account.take(100);
+
+        // intitialize the token "B"
+        let koin = Koin::initial_mint(Amount(1_000_000));
+        let koin_bucket = koin.take_koins(Amount(100)).unwrap();
+        
+        // initialize the component
+        // A: Thaum - B: Koin
+        let fee = Amount(1);
+        let mut dex = Dex::new(
+            thaum_bucket,
+            koin_bucket,
+            fee: ThaumAmount(1),
+            lp_initial_supply: 1000,
+            lp_symbol: "TK",
+            lp_name: "ThaumKoin",
+        );
+
+        // let's add Thaum liquidity
+        let thaum_liquidity = account.take(50);
+        let lp_tokens: Bucket<LiquidityToken> = dex.add_liquidity(thaum_liquidity, Bucket::new()).unwrap();
+
+        // let's remove liquidity (we get both tokens)
+        let (more_thaums, more_koins) = dex.remove_liquidity(lp_tokens).unwrap();
+        account.add_fungible(more_thaums);
+        account.add_fungible(more_koins);
+
+        // let's swap some Koins for Thaums
+        let some_koins = koin.take_koins(Amount(100));
+        let (more_thaums, more_koins) = dex.swap(Bucket::new(), some_koins).unwrap();
+        account.add_fungible(more_thaums);
+        account.add_fungible(more_koins);
+
+        // TODO: assert the expecting exchange ratio
+    }
+}

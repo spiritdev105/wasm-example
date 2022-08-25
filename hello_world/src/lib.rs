@@ -22,7 +22,8 @@ mod tests {
     #[template_stub(module="HelloWorld")]
     struct HelloWorld;
 
-    #[test]
+    // the "template_test" macro ensures that all instructions inside the test code will be executed atomically as a single transaction
+    #[template_test]
     fn greet_works() {
         // initialize the component
         let mut hello_world = HelloWorld::default();
@@ -34,5 +35,25 @@ mod tests {
         // the "template_stub" macro generates a proxy function for each user-defined function in the template,
         // internally it builds and runs a transaction on the wasm engine for each function/method invocation
         assert_eq!(hello_world.greet(), Ok("Hello World!".to_string()));
+    }
+
+    // This is how the test would be written without the "template_test" macro
+    // Useful to highligth that the stubs can be used outside of testing, in real environments
+    #[test]
+    fn greet_works_without_macro() {
+        // outside of test we could use a "mainnet" runtime, or a "testnet" one
+        // we could also configure which Validator Nodes we want to use, and the fees to pay for the transaction
+        let runtime = TestRuntime::new();
+        let transaction_builder = TransactionBuilder::new(runtime);
+
+        // this is equivalent to the "greet_work" test
+        // by specifying all the operations to run, the builder creates an atomic transaction
+        // so we could manipulate "Bucket" variables inside the scope without problems
+        transaction_builder.build(|| {
+            let mut hello_world = HelloWorld::default();
+            println!("The component address is: {}", hello_world.component_address());
+            assert_eq!(hello_world.greet(), Ok("Hello World!".to_string()));
+        })
+        .execute();
     }
 }
